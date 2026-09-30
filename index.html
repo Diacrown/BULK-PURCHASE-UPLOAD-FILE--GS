@@ -1098,7 +1098,7 @@
         sheetName = workbook.SheetNames[0];
         processBtn.disabled = false;
       } catch(err){
-        showError('<strong>Could not read this file.</strong> ' + (err && err.message ? err.message : 'It may be corrupted or not a valid Excel file.'));
+        showError('<strong>Could not read this file.</strong> ' + (err && err.message ? esc(err.message) : 'It may be corrupted or not a valid Excel file.'));
         processBtn.disabled = true;
       }
     };
@@ -1137,7 +1137,7 @@
     try{
       runTransform();
     } catch(err){
-      showError('<strong>Something went wrong while processing.</strong> ' + (err && err.message ? err.message : 'Check this is a genuine WSL PL Import export and try again.'));
+      showError('<strong>Something went wrong while processing.</strong> ' + (err && err.message ? esc(err.message) : 'Check this is a genuine WSL PL Import export and try again.'));
     }
   });
 
@@ -1386,7 +1386,7 @@
       filename = base + '_CORRECTED.xlsx';
       triggerDownload(blob, filename);
     } catch(err){
-      showError('<strong>Could not generate the download.</strong> ' + (err && err.message ? err.message : 'Try processing the file again.'));
+      showError('<strong>Could not generate the download.</strong> ' + (err && err.message ? esc(err.message) : 'Try processing the file again.'));
       return;
     }
 
@@ -1495,7 +1495,7 @@
       try{
         triggerDownload(base64ToBlob(entry.fileBase64), entry.fileName || (entry.invoiceNumber + '.xlsx'));
       } catch(err){
-        showError('<strong>Could not rebuild that file.</strong> ' + err.message);
+        showError('<strong>Could not rebuild that file.</strong> ' + esc(err.message));
       }
     }
 
@@ -1509,7 +1509,7 @@
         renderHistoryList(currentHistoryView);
       } catch(err){
         btn.disabled = false; btn.textContent = 'Delete';
-        showError('<strong>Could not delete that entry.</strong> ' + err.message);
+        showError('<strong>Could not delete that entry.</strong> ' + esc(err.message));
       }
     }
   });
