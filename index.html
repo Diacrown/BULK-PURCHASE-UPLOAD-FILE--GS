@@ -821,8 +821,13 @@
   function historyToCsv(list){
     const headers = ['Invoice Number','Processed At','File Name','Renamed','Skipped','Unchanged','Review','Edited','Total'];
     const escCsv = (v) => {
-      const s = String(v == null ? '' : v);
-      return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+      let s = String(v == null ? '' : v);
+      // CSV formula-injection guard: text cells that a spreadsheet would run as a
+      // formula get a leading ' (cells starting with + or - are left alone only when
+      // the whole cell is a plain number). Real JS numbers are never altered.
+      if(typeof v !== 'number' && (/^[=@\t\r]/.test(s) ||
+         (/^[+-]/.test(s) && !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(s)))) s = "'" + s;
+      return (/[",\n]/.test(s) || s.indexOf("'\r") === 0) ? '"' + s.replace(/"/g,'""') + '"' : s;
     };
     const rows = list.map(h => {
       const s = h.stats || {};
