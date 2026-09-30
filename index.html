@@ -1460,15 +1460,16 @@
     }
     historyList.innerHTML = '<div class="history-list">' + list.map((h, i) => {
       const s = h.stats || {};
+      const num = (x) => { const n = Number(x); return isFinite(n) ? n : 0; };
       const when = h.processedAt ? new Date(h.processedAt).toLocaleString() : '—';
       return '<div class="history-row" data-idx="' + i + '">'
         + '<div><div class="history-invoice">' + esc(h.invoiceNumber||'—') + '</div>'
         + '<div class="history-meta">' + esc(when) + '</div></div>'
         + '<div class="history-stats">'
-        + '<span class="badge badge-renamed">' + (s.renamed||0) + ' renamed</span>'
-        + '<span class="badge badge-skipped">' + (s.skipped||0) + ' skipped</span>'
-        + '<span class="badge badge-unchanged">' + (s.unchanged||0) + ' unchanged</span>'
-        + (s.review ? '<span class="badge badge-review">' + s.review + ' review</span>' : '')
+        + '<span class="badge badge-renamed">' + num(s.renamed) + ' renamed</span>'
+        + '<span class="badge badge-skipped">' + num(s.skipped) + ' skipped</span>'
+        + '<span class="badge badge-unchanged">' + num(s.unchanged) + ' unchanged</span>'
+        + (num(s.review) ? '<span class="badge badge-review">' + num(s.review) + ' review</span>' : '')
         + '</div>'
         + '<div class="history-actions">'
         + '<button class="icon-btn" data-action="download" data-idx="' + i + '">Download</button>'
