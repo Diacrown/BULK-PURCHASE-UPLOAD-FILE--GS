@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GS BULK PI — Gemstones Purchase Import</title>
+<title>BULK PI GENERATOR — Purchase Import</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -34,6 +34,11 @@
     --font-display:'Fraunces', serif;
     --font-body:'Inter', sans-serif;
     --font-mono:'IBM Plex Mono', monospace;
+    /* translucent overlay tokens — redefined per category theme below so hover
+       states / faint chips stay visible on both dark and light surfaces */
+    --overlay-1:rgba(255,255,255,0.015);
+    --overlay-2:rgba(255,255,255,0.04);
+    --overlay-3:rgba(255,255,255,0.08);
   }
 
   *{ box-sizing:border-box; }
@@ -227,7 +232,7 @@
   /* ---------- Stats ---------- */
   .stats-grid{
     display:grid;
-    grid-template-columns:repeat(5, 1fr);
+    grid-template-columns:repeat(6, 1fr);
     gap:12px;
     margin-top:8px;
   }
@@ -252,6 +257,7 @@
   .stat-card.renamed .stat-num{ color:var(--accent); }
   .stat-card.skipped .stat-num{ color:var(--skip); }
   .stat-card.review .stat-num{ color:var(--warn); }
+  .stat-card.pcconflict .stat-num{ color:var(--danger); }
 
   /* ---------- Table ---------- */
   .table-scroll{
@@ -279,7 +285,7 @@
     vertical-align:middle;
   }
   tbody tr:last-child td{ border-bottom:none; }
-  tbody tr:hover{ background:rgba(255,255,255,0.015); }
+  tbody tr:hover{ background:var(--overlay-1); }
 
   .cell-shape{ display:flex; align-items:center; gap:8px; }
   .cell-shape svg{ flex:none; }
@@ -313,9 +319,14 @@
   }
   .badge-renamed{ background:var(--accent-soft); color:var(--accent); }
   .badge-skipped{ background:var(--skip-soft); color:var(--skip); }
-  .badge-unchanged{ background:rgba(255,255,255,0.04); color:var(--text-faint); }
+  .badge-unchanged{ background:var(--overlay-2); color:var(--text-faint); }
   .badge-review{ background:var(--warn-soft); color:var(--warn); }
   .badge-edited{ background:rgba(124,147,224,0.14); color:#8FA3E8; }
+  /* Stone-category identity badges — fixed colors (not theme-linked) so a row's
+     category stays recognizable no matter which category tab/theme is active */
+  .badge-natural{ background:rgba(107,114,128,0.16); color:#6B7280; }
+  .badge-gemstone{ background:rgba(30,138,95,0.16); color:#1E8A5F; }
+  .badge-lab{ background:rgba(123,79,191,0.16); color:#9B6FE0; }
 
   .item-edit-input{
     font-family:var(--font-mono);
@@ -332,6 +343,222 @@
   .item-was{ font-size:11px; color:var(--text-faint); margin-top:3px; }
 
   .review-note{ font-size:11.5px; color:var(--text-faint); margin-top:2px; }
+
+  /* ---------- Category tabs & per-category screens ---------- */
+  /* Three stone categories are kept visually distinct — Natural, Gemstones and
+     Lab — so a mixed file never reads as one undifferentiated table. Clicking a
+     tab filters the results below it to that category and re-themes the whole
+     "Review the changes" panel around it: Natural → plain white, Gemstones →
+     light green gradient, Lab → light purple gradient. "All" (the default view
+     right after processing) keeps the tool's normal dark panel and shows every
+     row with its category badge. */
+  .category-tabs{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin:22px 0 4px;
+  }
+  .category-tab{
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:0.02em;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--hairline);
+    background:var(--bg-panel-raised);
+    color:var(--text-muted);
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .category-tab:hover{ color:var(--text-primary); border-color:var(--text-faint); }
+  .category-tab .tab-count{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    background:var(--overlay-3);
+    padding:1px 7px;
+    border-radius:999px;
+  }
+  .category-tab.active{ color:#fff; border-color:transparent; }
+  .category-tab.active .tab-count{ background:rgba(255,255,255,0.24); }
+  .category-tab[data-cat="all"].active{ background:#545C6A; }
+  .category-tab[data-cat="natural"].active{ background:#5B6472; }
+  .category-tab[data-cat="gemstone"].active{ background:#1E8A5F; }
+  .category-tab[data-cat="lab"].active{ background:#7B4FBF; }
+
+  /* Generic theme classes — applied to whichever panel needs re-theming
+     (#uploadPanel for the whole session once a mode is picked upfront,
+     #resultsPanel for whichever category tab is active). Because these
+     redefine the same CSS custom properties the rest of the stylesheet
+     already reads through var(), everything inside a themed panel — text,
+     borders, badges, inputs, hover states — adapts automatically. */
+  .panel{ transition:background .25s ease, color .25s ease, border-color .25s ease; }
+
+  /* Natural — plain white screen */
+  .theme-natural{
+    --bg-panel:#FFFFFF;
+    --bg-panel-raised:#F3F4F6;
+    --bg-panel-raised-2:#E7E9EC;
+    --hairline:#E2E4E8;
+    --hairline-soft:#EDEEF1;
+    --text-primary:#1B1E24;
+    --text-muted:#5B6472;
+    --text-faint:#8A93A3;
+    --overlay-1:rgba(0,0,0,0.025);
+    --overlay-2:rgba(0,0,0,0.045);
+    --overlay-3:rgba(0,0,0,0.06);
+    background:var(--bg-panel);
+    color:var(--text-primary);
+  }
+  /* Gemstones — light green gradient */
+  .theme-gemstone{
+    --bg-panel:#EAF8F0;
+    --bg-panel-raised:#DCF1E1;
+    --bg-panel-raised-2:#CDE9D5;
+    --hairline:#BFE3CB;
+    --hairline-soft:#D6EEDD;
+    --text-primary:#173B2B;
+    --text-muted:#3E6B54;
+    --text-faint:#5C8A72;
+    --accent:#1E8A5F;
+    --accent-hover:#26A374;
+    --accent-soft:rgba(30,138,95,0.14);
+    --overlay-1:rgba(23,59,43,0.035);
+    --overlay-2:rgba(23,59,43,0.06);
+    --overlay-3:rgba(23,59,43,0.09);
+    background:linear-gradient(160deg, #EFFAF3 0%, #D3EEDE 100%);
+    color:var(--text-primary);
+  }
+  /* Lab-grown — light purple gradient */
+  .theme-lab{
+    --bg-panel:#F5EEFC;
+    --bg-panel-raised:#EBDDF7;
+    --bg-panel-raised-2:#DFCBF2;
+    --hairline:#DCC3EF;
+    --hairline-soft:#EEE0F9;
+    --text-primary:#3A2455;
+    --text-muted:#6B5389;
+    --text-faint:#8A72A8;
+    --accent:#7B4FBF;
+    --accent-hover:#8F63D1;
+    --accent-soft:rgba(123,79,191,0.14);
+    --overlay-1:rgba(58,36,85,0.035);
+    --overlay-2:rgba(58,36,85,0.06);
+    --overlay-3:rgba(58,36,85,0.09);
+    background:linear-gradient(160deg, #F8F1FD 0%, #E4D3F5 100%);
+    color:var(--text-primary);
+  }
+  .theme-natural .dup-banner,
+  .theme-gemstone .dup-banner,
+  .theme-lab .dup-banner{ color:#7A5B00; }
+  .theme-natural .config-note code,
+  .theme-gemstone .config-note code,
+  .theme-lab .config-note code{ background:var(--overlay-3); }
+
+  /* ---------- Mode select (landing screen) ---------- */
+  .mode-tiles{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:14px;
+    margin-top:20px;
+  }
+  .mode-tile{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:8px;
+    text-align:left;
+    background:var(--bg-panel-raised);
+    border:1.5px solid var(--hairline);
+    border-radius:var(--radius-md);
+    padding:22px 20px;
+    cursor:pointer;
+    transition:border-color .15s ease, transform .1s ease, background .15s ease;
+    font-family:var(--font-body);
+  }
+  .mode-tile:hover{ border-color:var(--text-faint); background:var(--bg-panel-raised-2); }
+  .mode-tile:active{ transform:translateY(1px); }
+  .mode-tile-swatch{
+    width:22px; height:22px; border-radius:7px; flex:none;
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  .swatch-natural{ background:#FFFFFF; }
+  .swatch-gemstone{ background:linear-gradient(160deg, #EFFAF3 0%, #D3EEDE 100%); }
+  .swatch-lab{ background:linear-gradient(160deg, #F8F1FD 0%, #E4D3F5 100%); }
+  .mode-tile-title{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:17px;
+    color:var(--text-primary);
+  }
+  .mode-tile-sub{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-muted);
+    letter-spacing:0.02em;
+  }
+  .mode-mixed-link{
+    display:block;
+    margin:16px auto 0;
+    background:none;
+    border:none;
+    color:var(--text-muted);
+    font-size:12.5px;
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:pointer;
+    font-family:var(--font-body);
+  }
+  .mode-mixed-link:hover{ color:var(--text-primary); }
+
+  /* ---------- Mode chip (shown once a mode is picked) ---------- */
+  .mode-chip-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .mode-chip{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:6px 12px;
+    border-radius:999px;
+    background:var(--bg-panel-raised);
+    border:1px solid var(--hairline);
+    color:var(--text-primary);
+  }
+  .mode-change-link{
+    background:none;
+    border:none;
+    color:var(--text-muted);
+    font-size:12px;
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:pointer;
+    font-family:var(--font-body);
+    padding:0;
+  }
+  .mode-change-link:hover{ color:var(--text-primary); }
+
+  /* ---------- Mode-mismatch banner ---------- */
+  .mode-mismatch-banner{
+    margin-top:16px;
+    background:var(--warn-soft);
+    border:1px solid rgba(201,162,39,0.4);
+    color:#C9A227;
+    font-size:13px;
+    padding:12px 14px;
+    border-radius:10px;
+    line-height:1.5;
+  }
+  .theme-natural .mode-mismatch-banner,
+  .theme-gemstone .mode-mismatch-banner,
+  .theme-lab .mode-mismatch-banner{ color:#8A6D1C; }
+  .mode-mismatch-banner strong{ color:inherit; }
 
   /* ---------- Footer / download ---------- */
   .download-panel{
@@ -470,6 +697,7 @@
 
   @media (max-width: 720px){
     .stats-grid{ grid-template-columns:repeat(2, 1fr); }
+    .mode-tiles{ grid-template-columns:1fr; }
     .wrap{ padding:32px 16px 72px; }
     .table-scroll{ overflow-x:auto; }
     table{ min-width:640px; }
@@ -494,27 +722,55 @@
           <polyline points="17,2 22,11" stroke="#3FA88C" stroke-width="1.2" opacity="0.6"/>
         </svg>
         <div>
-          <h1>GS BULK PI</h1>
-          <div class="brand-sub">GEMSTONES PURCHASE IMPORT — BULK FILE GENERATOR</div>
+          <h1>BULK PI GENERATOR</h1>
+          <div class="brand-sub">PURCHASE IMPORT — BULK FILE GENERATOR &middot; NATURAL &middot; GEMSTONES &middot; LAB-GROWN</div>
         </div>
       </div>
-      <span class="module-tag">WSL PL Import</span>
+      <span class="module-tag">Any Location · Purchase Import</span>
     </div>
     <div class="facet-rule"></div>
   </header>
 
-  <!-- Upload -->
-  <section class="panel">
-    <h2 class="panel-title">1. Load the raw file</h2>
-    <p class="panel-desc">Drop the raw WSL PL Import export below. Nothing leaves your browser — the file is read and rewritten locally.</p>
+  <!-- Mode select -->
+  <section class="panel" id="modeSelectPanel">
+    <h2 class="panel-title">Which are you working with?</h2>
+    <p class="panel-desc">Pick a category to open its screen. Every row still gets the correct code logic automatically no matter what you pick here — this just keeps each session focused on one category so there's never any ambiguity about which logic is running. Works for any location's import file, not tied to one office.</p>
+    <div class="mode-tiles">
+      <button type="button" class="mode-tile" data-mode="natural">
+        <span class="mode-tile-swatch swatch-natural"></span>
+        <span class="mode-tile-title">Natural</span>
+        <span class="mode-tile-sub">WHD &middot; BRD &middot; TCD &middot; FCD</span>
+      </button>
+      <button type="button" class="mode-tile" data-mode="gemstone">
+        <span class="mode-tile-swatch swatch-gemstone"></span>
+        <span class="mode-tile-title">Gemstones</span>
+        <span class="mode-tile-sub">SAP &middot; RUB &middot; EME &middot; and more</span>
+      </button>
+      <button type="button" class="mode-tile" data-mode="lab">
+        <span class="mode-tile-swatch swatch-lab"></span>
+        <span class="mode-tile-title">Lab-Grown</span>
+        <span class="mode-tile-sub">LGD</span>
+      </button>
+    </div>
+    <button type="button" class="mode-mixed-link" id="modeMixedLink">Not sure / mixed file — show me everything instead</button>
+  </section>
 
-    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload raw WSL PL Import file">
+  <!-- Upload -->
+  <section class="panel" id="uploadPanel" style="display:none;">
+    <div class="mode-chip-row">
+      <span class="mode-chip" id="modeChip">—</span>
+      <button type="button" class="mode-change-link" id="modeChangeLink">change</button>
+    </div>
+    <h2 class="panel-title">1. Load the raw file</h2>
+    <p class="panel-desc" id="uploadDesc">Drop the raw import export below. Each line is read from its own <code>Type</code> and routed to the matching logic automatically. Nothing leaves your browser — the file is read and rewritten locally.</p>
+
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload raw purchase import file">
       <svg class="dz-icon" width="40" height="40" viewBox="0 0 40 40" fill="none">
         <path d="M20 6L20 26M20 6L13 13M20 6L27 13" stroke="#3FA88C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M8 26V30C8 31.6569 9.34315 33 11 33H29C30.6569 33 32 31.6569 32 30V26" stroke="#8A93A3" stroke-width="2" stroke-linecap="round"/>
       </svg>
       <div class="dz-title">Drop the raw .xlsx here</div>
-      <div class="dz-sub">or <span class="accent-link">click to browse</span> — WSL_PL_IMPORT export</div>
+      <div class="dz-sub">or <span class="accent-link">click to browse</span> — any location's purchase import export</div>
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls">
 
@@ -539,7 +795,9 @@
   <!-- Results -->
   <section class="panel" id="resultsPanel" style="display:none;">
     <h2 class="panel-title">2. Review the changes</h2>
-    <p class="panel-desc">SBK is forced to <code>A</code> and Forwarding&nbsp;PC to match SSP on every line item. PP lines get a generated code unless Ref&nbsp;#/Lot&nbsp;# marks them for an overseas client.</p>
+    <p class="panel-desc">SBK is forced to <code>A</code> on every line item. SSP and Forwarding&nbsp;PC are synced — whichever of the two has a value fills the blank one; if both already have different values, neither is touched and the row is flagged instead of guessed. PP lines get a generated code unless Ref&nbsp;#/Lot&nbsp;# marks them for an overseas client — <span style="color:var(--text-primary);">Natural</span> (WHD/BRD/TCD/FCD), <span style="color:var(--text-primary);">Gemstone</span>, and <span style="color:var(--text-primary);">Lab-grown</span> (LGD) lines each use their own code logic, chosen automatically from the Type column.</p>
+
+    <div class="mode-mismatch-banner" id="modeMismatchBanner" style="display:none;"></div>
 
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Line items</div></div>
@@ -547,6 +805,14 @@
       <div class="stat-card skipped"><div class="stat-num" id="statSkipped">0</div><div class="stat-label">Skipped — overseas</div></div>
       <div class="stat-card"><div class="stat-num" id="statUnchanged">0</div><div class="stat-label">Unchanged (SS)</div></div>
       <div class="stat-card review"><div class="stat-num" id="statReview">0</div><div class="stat-label">Needs review</div></div>
+      <div class="stat-card pcconflict"><div class="stat-num" id="statPcConflict">0</div><div class="stat-label">SSP/Fwd PC conflict</div></div>
+    </div>
+
+    <div class="category-tabs" id="categoryTabs">
+      <button type="button" class="category-tab active" data-cat="all">All <span class="tab-count" id="tabCountAll">0</span></button>
+      <button type="button" class="category-tab" data-cat="natural">Natural <span class="tab-count" id="tabCountNatural">0</span></button>
+      <button type="button" class="category-tab" data-cat="gemstone">Gemstones <span class="tab-count" id="tabCountGemstone">0</span></button>
+      <button type="button" class="category-tab" data-cat="lab">Lab-Grown <span class="tab-count" id="tabCountLab">0</span></button>
     </div>
 
     <div class="table-scroll">
@@ -554,6 +820,7 @@
         <thead>
           <tr>
             <th>Pos</th>
+            <th>Category</th>
             <th>Shape</th>
             <th>Type</th>
             <th>Col</th>
@@ -712,7 +979,7 @@
      Firestore above. One signed-in user gates read/write on the "outputs"
      collection (the security rule requires request.auth != null).
   ----------------------------------------------------------------------- */
-  const AUTH_STORAGE_KEY = 'gsBulkPiAuthSession';
+  const AUTH_STORAGE_KEY = 'bulkPiGeneratorAuthSession';
   let authSession = null; // { idToken, refreshToken, email, expiresAt }
 
   function saveAuthSession(session){
@@ -906,6 +1173,102 @@
     }
   }
 
+  // =========================================================================
+  // NATURAL (diamond) code logic — PP_Num_Logic_2018 reference file.
+  // Separate from the gemstone logic above: diamonds use their own shape-code
+  // table (Octagonal is literally 43, NOT shared with Emerald the way it is
+  // for gemstones), a Size-column lookup instead of parsing Remarks, and
+  // digit-coded Color/Clarity instead of a 3-letter color straight through.
+  // Only Round-shape parcels are covered with full confidence — fancy/non-
+  // Round diamond shapes need a size-table disambiguation this tool doesn't
+  // have validated yet, so those are sent to "review" rather than guessed.
+  // =========================================================================
+  const DIAMOND_TYPES = new Set(['WHD','BRD','TCD','FCD','LGD']);
+  // Lab-grown is a diamond for code-building purposes (same shape/size/color/
+  // clarity structure, "LG"-prefixed) but its own display/theming category —
+  // the tool bifurcates results into three screens: Natural, Gemstones, Lab.
+  const LAB_TYPES = new Set(['LGD']);
+  function categoryForType(typeVal){
+    const t = String(typeVal||'').trim().toUpperCase();
+    if(LAB_TYPES.has(t)) return 'lab';
+    if(DIAMOND_TYPES.has(t)) return 'natural';
+    return 'gemstone';
+  }
+
+  // Size column → embedded 3-digit code. For 0.18ct+ stones the Size value
+  // IS already the final code (e.g. "100" for 1.00-1.19ct). Only the small
+  // melee shorthand codes below need translating.
+  const RND_SIZE_TO_CODE = {
+    'M02':'000', 'P02':'002', 'P06':'006', 'STM':'004',
+    '11':'008', '12':'010', 'ELF':'013', '14':'014'
+  };
+  function diamondSizeCode(sizeVal){
+    if(isBlank(sizeVal)) return null;
+    const raw = String(sizeVal).trim().toUpperCase();
+    if(raw in RND_SIZE_TO_CODE) return RND_SIZE_TO_CODE[raw];
+    const stripped = raw.replace(/^0+(?=\d)/, ''); // "011" -> "11", "012" -> "12"
+    if(stripped in RND_SIZE_TO_CODE) return RND_SIZE_TO_CODE[stripped];
+    if(/^\d{3}$/.test(raw)) return raw; // already a final 3-digit code (e.g. "100","120","600")
+    return null;
+  }
+
+  // Color: GIA letter grades (from the reference file's Color sheet) plus the
+  // internal 2-letter abbreviations seen in real transaction data (TW, WH).
+  const DIAMOND_COLOR_DIGIT = {
+    D:'0', E:'0',
+    F:'1', G:'1', H:'1', TW:'1',
+    I:'2', J:'2', WH:'2',
+    K:'3', L:'3', M:'3',
+    N:'4', O:'4', P:'4', Q:'4'
+  };
+  // Clarity: FL/IF/VVS1/VVS2 all bucket to 0 (confirmed) — VVS2 is NOT digit 2.
+  const DIAMOND_CLARITY_DIGIT = {
+    FL:'0', IF:'0', VVS1:'0', VVS2:'0',
+    VS1:'1', VS2:'2', SI1:'3', SI2:'4', SI3:'5', I1:'6', 'I1-':'7', I2:'8', I3:'9'
+  };
+  // TCD: letter color code instead of a clarity digit — normalized to the
+  // official 2-3 letter reference code, never passed through verbatim
+  // (confirmed: black is "BL" only, "BLK"/"TBLK" seen in live data are not
+  // the correct code).
+  const TCD_COLOR_MAP = {
+    BL:'BL', BLK:'BL', TBLK:'BL', BLACK:'BL',
+    TB:'TB', TP:'TP', TY:'TY', TR:'TR', TV:'TV', TG:'TG', TD:'TD'
+  };
+
+  function buildDiamondCode(type, shape, size, col, cla){
+    const typ = String(type || '').trim().toUpperCase();
+    const shapeKey = String(shape || '').trim().toUpperCase();
+    const shapeCode = (shapeKey in SHAPE_CODES) ? SHAPE_CODES[shapeKey] : null; // literal table — no OCT override for diamonds
+    const sizeCode = diamondSizeCode(size);
+    const colKey = String(col || '').trim().toUpperCase();
+
+    if(shapeKey !== 'RND'){
+      return { code:null, note:'Fancy/non-Round diamond shape — size-table logic not validated yet, not guessing' };
+    }
+    if(!sizeCode){
+      return { code:null, note:'Size code "'+(size==null?'':size)+'" not recognized — cannot determine, not guessing' };
+    }
+    const shapeCodeStr = String(shapeCode).padStart(2,'0'); // always "10" (RND) until fancy shapes are added
+
+    if(typ === 'TCD'){
+      const mapped = TCD_COLOR_MAP[colKey];
+      if(!mapped) return { code:null, note:'Color "'+(col==null?'':col)+'" not a recognized TCD letter code' };
+      return { code: shapeCodeStr + sizeCode + mapped, note:'' };
+    }
+
+    const colorDigit = DIAMOND_COLOR_DIGIT[colKey];
+    const clarityDigit = DIAMOND_CLARITY_DIGIT[String(cla||'').trim().toUpperCase()];
+    if(!colorDigit) return { code:null, note:'Color "'+(col==null?'':col)+'" not recognized — cannot determine, not guessing' };
+    if(!clarityDigit) return { code:null, note:'Clarity "'+(cla==null?'':cla)+'" not recognized — cannot determine, not guessing' };
+
+    let code = shapeCodeStr + sizeCode + colorDigit + clarityDigit;
+    // Confirmed convention: LGD gets the exact same Shape+Size+Color+Clarity
+    // code a Natural diamond would, with an "LG" prefix added on top — kept
+    // uniform with Natural rather than a separate numbering scheme.
+    if(typ === 'LGD') code = 'LG' + code;
+    return { code, note:'' };
+  }
+
   function isBlank(v){ return v === undefined || v === null || String(v).trim() === ''; }
 
   // Format code looks date/time-like (contains d/m/y letters with typical separators),
@@ -945,9 +1308,18 @@
   let lastInvoiceNumber = null;
   let lastStats = null;
   let lastResultsList = null;
+  let activeCategoryTab = 'all'; // 'all' | 'natural' | 'gemstone' | 'lab'
+  let selectedMode = null; // null (not chosen yet) | 'natural' | 'gemstone' | 'lab' | 'mixed'
   let historyCache = null; // null = not fetched yet this session
   let currentHistoryView = null;
 
+  const modeSelectPanel = document.getElementById('modeSelectPanel');
+  const modeMixedLink = document.getElementById('modeMixedLink');
+  const uploadPanel = document.getElementById('uploadPanel');
+  const uploadDesc = document.getElementById('uploadDesc');
+  const modeChip = document.getElementById('modeChip');
+  const modeChangeLink = document.getElementById('modeChangeLink');
+  const modeMismatchBanner = document.getElementById('modeMismatchBanner');
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
   const fileChip = document.getElementById('fileChip');
@@ -958,6 +1330,7 @@
   const errorBanner = document.getElementById('errorBanner');
   const resultsPanel = document.getElementById('resultsPanel');
   const resultsBody = document.getElementById('resultsBody');
+  const categoryTabs = document.getElementById('categoryTabs');
   const downloadBtn = document.getElementById('downloadBtn');
   const saveStatus = document.getElementById('saveStatus');
   const dupBanner = document.getElementById('dupBanner');
@@ -1051,7 +1424,7 @@
     if(!list.length) return;
     const csv = historyToCsv(list);
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    triggerDownload(blob, 'gs-bulk-pi-history_' + new Date().toISOString().slice(0,10) + '.csv');
+    triggerDownload(blob, 'bulk-pi-generator-history_' + new Date().toISOString().slice(0,10) + '.csv');
   });
 
   function showError(msg){
@@ -1066,9 +1439,26 @@
     hasResults = false;
     lastInvoiceNumber = null;
     lastStats = null;
+    lastResultsList = null;
+    activeCategoryTab = 'all';
+    applyResultsTheme('all');
+    categoryTabs.querySelectorAll('.category-tab').forEach(b => b.classList.toggle('active', b.dataset.cat === 'all'));
     saveStatus.textContent = '';
     saveStatus.className = 'save-status';
     dupBanner.style.display = 'none';
+    modeMismatchBanner.style.display = 'none';
+    modeMismatchBanner.innerHTML = '';
+  }
+
+  // Shared by "Remove" and by switching/leaving a mode — clears the loaded
+  // file and any results, without touching which mode (if any) is active.
+  function resetFileState(){
+    currentFile = null; workbook = null; sheetName = null; colIdx = null;
+    fileInput.value = '';
+    fileChip.style.display = 'none';
+    processBtn.disabled = true;
+    clearError();
+    resetResults();
   }
 
   function handleFile(file){
@@ -1077,7 +1467,7 @@
     if(!file) return;
     const okExt = /\.(xlsx|xls)$/i.test(file.name);
     if(!okExt){
-      showError('<strong>Wrong file type.</strong> Upload the raw WSL PL Import <code>.xlsx</code> export.');
+      showError('<strong>Wrong file type.</strong> Upload the raw purchase import <code>.xlsx</code> export.');
       return;
     }
     currentFile = file;
@@ -1119,13 +1509,43 @@
   });
   fileInput.addEventListener('change', (e)=> handleFile(e.target.files[0]));
 
-  clearBtn.addEventListener('click', ()=>{
-    currentFile = null; workbook = null;
-    fileInput.value = '';
-    fileChip.style.display = 'none';
-    processBtn.disabled = true;
-    clearError();
-    resetResults();
+  clearBtn.addEventListener('click', resetFileState);
+
+  // ---------------- Mode select (landing screen) ----------------
+  const MODE_LABELS = { natural:'Natural', gemstone:'Gemstones', lab:'Lab-Grown', mixed:'Mixed / All' };
+  const MODE_UPLOAD_DESC = {
+    natural: 'Drop the raw import file for <span style="color:var(--text-primary);">Natural diamonds</span> (WHD/BRD/TCD/FCD) below. Each line is still read from its own <code>Type</code> and coded automatically — this screen is just scoped to Natural so there\'s no ambiguity about which logic is running. Nothing leaves your browser.',
+    gemstone: 'Drop the raw import file for <span style="color:var(--text-primary);">Gemstones</span> (SAP/RUB/EME, and the rest) below. Each line is still read from its own <code>Type</code> and coded automatically — this screen is just scoped to Gemstones so there\'s no ambiguity about which logic is running. Nothing leaves your browser.',
+    lab: 'Drop the raw import file for <span style="color:var(--text-primary);">Lab-Grown diamonds</span> (LGD) below. Each line is still read from its own <code>Type</code> and coded automatically — this screen is just scoped to Lab-Grown so there\'s no ambiguity about which logic is running. Nothing leaves your browser.',
+    mixed: 'Drop the raw import export below — natural diamonds, gemstones, lab-grown, or a mix of all three in one file. Each line is read from its own <code>Type</code> and routed to the matching logic automatically. Nothing leaves your browser.'
+  };
+
+  function selectMode(mode){
+    selectedMode = mode;
+    modeSelectPanel.style.display = 'none';
+    uploadPanel.style.display = 'block';
+    uploadPanel.classList.remove('theme-natural', 'theme-gemstone', 'theme-lab');
+    if(mode === 'natural') uploadPanel.classList.add('theme-natural');
+    else if(mode === 'gemstone') uploadPanel.classList.add('theme-gemstone');
+    else if(mode === 'lab') uploadPanel.classList.add('theme-lab');
+    modeChip.textContent = MODE_LABELS[mode] + ' mode';
+    uploadDesc.innerHTML = MODE_UPLOAD_DESC[mode];
+    resetFileState(); // a fresh screen — clear anything left from a previous mode
+    uploadPanel.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
+  }
+
+  modeSelectPanel.querySelectorAll('.mode-tile').forEach(tile => {
+    tile.addEventListener('click', () => selectMode(tile.dataset.mode));
+  });
+  modeMixedLink.addEventListener('click', () => selectMode('mixed'));
+
+  modeChangeLink.addEventListener('click', () => {
+    selectedMode = null;
+    uploadPanel.style.display = 'none';
+    uploadPanel.classList.remove('theme-natural', 'theme-gemstone', 'theme-lab');
+    modeSelectPanel.style.display = 'block';
+    resetFileState();
+    modeSelectPanel.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
   });
 
   processBtn.addEventListener('click', () => {
@@ -1169,6 +1589,8 @@
       ssp: findCol(headers,'SSP'),
       fpc: findCol(headers,'Forwarding PC'),
       txn: findCol(headers,'Txn #'),
+      size: findCol(headers,'Size'),
+      cla: findCol(headers,'Cla'),
     };
 
     const required = ['pos','it','sbk','type','shape','ref','remarks','colr','item','ssp','fpc'];
@@ -1199,10 +1621,22 @@
       // Force SBK = "A"
       ws[addr(r,'sbk')] = { t:'s', v:'A' };
 
-      // Force Forwarding PC = SSP — copy the whole cell so type/format matches exactly
+      // Sync SSP <-> Forwarding PC: whichever of the two actually has a value
+      // fills the blank one (direction isn't fixed — either column can be the
+      // source, per-row). If both already carry a value, neither is touched;
+      // if those two values differ, the row is flagged rather than guessing
+      // which one is correct.
       const sspAddr = addr(r,'ssp'), fpcAddr = addr(r,'fpc');
-      if(ws[sspAddr]) ws[fpcAddr] = Object.assign({}, ws[sspAddr]);
-      else delete ws[fpcAddr];
+      const sspValRaw = getVal(r,'ssp'), fpcValRaw = getVal(r,'fpc');
+      const sspBlank = isBlank(sspValRaw), fpcBlank = isBlank(fpcValRaw);
+      let pcSyncNote = '';
+      if(sspBlank && !fpcBlank){
+        ws[sspAddr] = Object.assign({}, ws[fpcAddr]); // copy whole cell so type/format match exactly
+      } else if(fpcBlank && !sspBlank){
+        ws[fpcAddr] = Object.assign({}, ws[sspAddr]);
+      } else if(!sspBlank && !fpcBlank && String(sspValRaw).trim() !== String(fpcValRaw).trim()){
+        pcSyncNote = 'SSP ("'+sspValRaw+'") and Forwarding PC ("'+fpcValRaw+'") both have different values — left both as-is, not guessed which is correct';
+      }
 
       const itVal = String(getVal(r,'it') ?? '').trim();
       let status = 'unchanged', note = '';
@@ -1219,29 +1653,51 @@
         if(overseas){
           status = 'skipped';
         } else {
-          const shapeVal = getVal(r,'shape');
-          const remarksVal = getVal(r,'remarks');
-          const shapeCode = shapeCodeForNaming(shapeVal);
-          const measCode = parseMeasurementCode(shapeVal, remarksVal);
-          if(shapeCode == null || measCode == null){
-            status = 'review';
-            note = shapeCode == null ? 'Unknown shape code' : 'Could not parse a measurement from Remarks';
+          const typeVal = getVal(r,'type');
+          const isNatural = DIAMOND_TYPES.has(String(typeVal||'').trim().toUpperCase());
+
+          if(isNatural){
+            const sizeVal = colIdx.size > -1 ? getVal(r,'size') : null;
+            const claVal = colIdx.cla > -1 ? getVal(r,'cla') : null;
+            const built = buildDiamondCode(typeVal, getVal(r,'shape'), sizeVal, getVal(r,'colr'), claVal);
+            if(!built.code){
+              status = 'review';
+              note = built.note || 'Could not determine a Natural code';
+            } else {
+              afterItem = built.code;
+              ws[addr(r,'item')] = { t:'s', v: afterItem };
+              status = 'renamed';
+              note = built.note || '';
+            }
           } else {
-            afterItem = String(getVal(r,'type') ?? '') + shapeCode + String(getVal(r,'colr') ?? '') + measCode;
-            ws[addr(r,'item')] = { t:'s', v: afterItem };
-            status = 'renamed';
+            const shapeVal = getVal(r,'shape');
+            const remarksVal = getVal(r,'remarks');
+            const shapeCode = shapeCodeForNaming(shapeVal);
+            const measCode = parseMeasurementCode(shapeVal, remarksVal);
+            if(shapeCode == null || measCode == null){
+              status = 'review';
+              note = shapeCode == null ? 'Unknown shape code' : 'Could not parse a measurement from Remarks';
+            } else {
+              afterItem = String(getVal(r,'type') ?? '') + shapeCode + String(getVal(r,'colr') ?? '') + measCode;
+              ws[addr(r,'item')] = { t:'s', v: afterItem };
+              status = 'renamed';
+            }
           }
         }
       }
 
+      const combinedNote = [note, pcSyncNote].filter(Boolean).join(' — ');
+
       results.push({
         pos: posVal,
+        category: categoryForType(getVal(r,'type')),
         shape: getVal(r,'shape'),
         type: getVal(r,'type'),
         col: getVal(r,'colr'),
         before: beforeItem,
         after: afterItem,
-        status, note,
+        status, note: combinedNote,
+        pcSyncConflict: !!pcSyncNote,
         itemAddr: addr(r,'item')
       });
     }
@@ -1296,8 +1752,20 @@
     }
 
     hasResults = true;
-    lastStats = { total: results.length, renamed:0, skipped:0, unchanged:0, review:0, edited:0 };
-    results.forEach(r => lastStats[r.status]++);
+    // Stable original-array index on every row, independent of any later
+    // category-tab filtering of the rendered table — the manual-edit handler
+    // relies on data-idx pointing at the right entry in lastResultsList no
+    // matter which category subset is currently on screen.
+    results.forEach((r, i) => { r._idx = i; });
+    lastStats = { total: results.length, renamed:0, skipped:0, unchanged:0, review:0, edited:0,
+      catNatural:0, catGemstone:0, catLab:0, pcConflict:0 };
+    results.forEach(r => {
+      lastStats[r.status]++;
+      if(r.category === 'natural') lastStats.catNatural++;
+      else if(r.category === 'lab') lastStats.catLab++;
+      else lastStats.catGemstone++;
+      if(r.pcSyncConflict) lastStats.pcConflict++;
+    });
     lastResultsList = results;
     lastInvoiceNumber = null;
     if(colIdx.txn > -1){
@@ -1316,26 +1784,103 @@
     document.getElementById('statSkipped').textContent = lastStats.skipped;
     document.getElementById('statUnchanged').textContent = lastStats.unchanged;
     document.getElementById('statReview').textContent = lastStats.review;
+    document.getElementById('statPcConflict').textContent = lastStats.pcConflict;
 
-    resultsBody.innerHTML = results.map((r, i) => {
+    document.getElementById('tabCountAll').textContent = lastStats.total;
+    document.getElementById('tabCountNatural').textContent = lastStats.catNatural;
+    document.getElementById('tabCountGemstone').textContent = lastStats.catGemstone;
+    document.getElementById('tabCountLab').textContent = lastStats.catLab;
+
+    // Default to whichever mode was picked upfront (Natural/Gemstones/
+    // Lab-Grown), so the first thing shown matches what this session is
+    // scoped to. "Mixed" mode (or no mode picked) falls back to "All".
+    activeCategoryTab = (selectedMode && selectedMode !== 'mixed') ? selectedMode : 'all';
+    categoryTabs.querySelectorAll('.category-tab').forEach(b => b.classList.toggle('active', b.dataset.cat === activeCategoryTab));
+    applyResultsTheme(activeCategoryTab);
+    updateModeMismatchBanner();
+
+    renderResultsRows(results);
+
+    resultsPanel.style.display = 'block';
+    resultsPanel.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
+  }
+
+  // Renders whichever rows match the active category tab. Always called with
+  // lastResultsList (not a copy), so edits made in one tab's view are still
+  // reflected if you switch tabs and back. data-idx uses each row's stable
+  // r._idx (its position in lastResultsList), never the filtered array's own
+  // index, so the manual-edit handler below keeps pointing at the right row.
+  function renderResultsRows(results){
+    const filtered = activeCategoryTab === 'all'
+      ? results
+      : results.filter(r => r.category === activeCategoryTab);
+
+    resultsBody.innerHTML = filtered.map((r) => {
       const shapeLabel = SHAPE_NAMES[String(r.shape||'').trim()] || (r.shape || '—');
       const cHex = colorHex(r.col);
       const wasNote = (r.before !== r.after && r.status !== 'edited')
         ? '<div class="item-was">was: '+esc(r.before)+'</div>' : '';
       const noteHtml = r.note ? '<div class="review-note">'+esc(r.note)+'</div>' : '';
+      const catBadge = r.category === 'natural'
+        ? '<span class="badge badge-natural">natural</span>'
+        : r.category === 'lab'
+          ? '<span class="badge badge-lab">lab-grown</span>'
+          : '<span class="badge badge-gemstone">gemstone</span>';
       return '<tr>'
         + '<td class="item-code">'+esc(r.pos)+'</td>'
+        + '<td>'+catBadge+'</td>'
         + '<td><div class="cell-shape">'+shapeGlyph(r.shape, cHex)+'<span class="shape-name">'+esc(shapeLabel)+'</span></div></td>'
         + '<td>'+esc(r.type)+'</td>'
         + '<td><span class="col-chip"><span class="col-dot" style="background:'+cHex+'"></span>'+esc(r.col)+'</span></td>'
-        + '<td><input class="item-edit-input" data-idx="'+i+'" value="'+esc(r.after == null ? '' : r.after)+'">'+wasNote+noteHtml+'</td>'
+        + '<td><input class="item-edit-input" data-idx="'+r._idx+'" value="'+esc(r.after == null ? '' : r.after)+'">'+wasNote+noteHtml+'</td>'
         + '<td class="status-badge-cell">'+(badgeMap[r.status]||'')+'</td>'
         + '</tr>';
     }).join('');
-
-    resultsPanel.style.display = 'block';
-    resultsPanel.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
   }
+
+  // Swaps the "Review the changes" panel's own theme: All keeps the tool's
+  // normal dark panel; Natural/Gemstones/Lab each switch it to their own
+  // background (white / light green gradient / light purple gradient) so the
+  // three stone categories are never visually ambiguous.
+  function applyResultsTheme(cat){
+    resultsPanel.classList.remove('theme-natural', 'theme-gemstone', 'theme-lab');
+    if(cat === 'natural') resultsPanel.classList.add('theme-natural');
+    else if(cat === 'gemstone') resultsPanel.classList.add('theme-gemstone');
+    else if(cat === 'lab') resultsPanel.classList.add('theme-lab');
+  }
+
+  // Heads-up banner for when the file processed doesn't match the mode
+  // picked upfront — every row still gets its correct logic regardless (see
+  // categoryForType/buildDiamondCode), this is purely a "double check you
+  // uploaded the right file" nudge, not a processing restriction.
+  function updateModeMismatchBanner(){
+    if(!selectedMode || selectedMode === 'mixed' || !lastStats){
+      modeMismatchBanner.style.display = 'none';
+      modeMismatchBanner.innerHTML = '';
+      return;
+    }
+    const counts = { natural: lastStats.catNatural, gemstone: lastStats.catGemstone, lab: lastStats.catLab };
+    const offParts = Object.keys(counts)
+      .filter(cat => cat !== selectedMode && counts[cat] > 0)
+      .map(cat => '<strong>'+counts[cat]+'</strong> '+MODE_LABELS[cat]+' row'+(counts[cat]===1?'':'s'));
+    if(offParts.length === 0){
+      modeMismatchBanner.style.display = 'none';
+      modeMismatchBanner.innerHTML = '';
+      return;
+    }
+    modeMismatchBanner.innerHTML = '⚠ You\'re in <strong>'+MODE_LABELS[selectedMode]+'</strong> mode, but this file also has '
+      + offParts.join(' and ') + '. They were still processed with their own correct logic — just make sure you uploaded the right file into this section, to prevent import batches getting mixed up between categories.';
+    modeMismatchBanner.style.display = 'block';
+  }
+
+  categoryTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.category-tab');
+    if(!btn || !lastResultsList) return;
+    activeCategoryTab = btn.dataset.cat;
+    categoryTabs.querySelectorAll('.category-tab').forEach(b => b.classList.toggle('active', b === btn));
+    applyResultsTheme(activeCategoryTab);
+    renderResultsRows(lastResultsList);
+  });
 
   // Manual override: editing a row's Item# updates the workbook cell directly
   // (so the download reflects it) and re-buckets that row's stats as "edited",
